@@ -385,6 +385,7 @@ editor:
     bookmarkCount: $n bookmarks
     noBookmarks: No bookmarks yet
     pageN: Page $page
+    saved: Saved to note
   pages: Pages
   untitled: Untitled
   needsToSaveBeforeExiting: Saving your changes… You can safely exit the editor when it's done
