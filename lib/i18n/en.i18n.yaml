@@ -385,6 +385,10 @@ editor:
     bookmarkCount: $n bookmarks
     noBookmarks: No bookmarks yet
     pageN: Page $page
+    renameBookmark: Rename bookmark
+    bookmarkName: Bookmark name
+    tapToJump: Tap to jump
+    justVisited: Just visited
     saved: Saved to note
   pages: Pages
   untitled: Untitled
