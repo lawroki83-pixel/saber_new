@@ -234,6 +234,7 @@ class EditorCoreInfo {
        lineHeight = stows.lastLineHeight.value,
        lineThickness = stows.lastLineThickness.value,
        pages = [],
+       bookmarks = const <int>[],
        assetCache = AssetCache() {
     _migrateOldStrokesAndImages(
       fileVersion: 0,
