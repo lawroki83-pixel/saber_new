@@ -29,6 +29,7 @@ import 'package:saber/components/theming/saber_theme.dart';
 import 'package:saber/components/toolbar/color_bar.dart';
 import 'package:saber/components/toolbar/editor_bottom_sheet.dart';
 import 'package:saber/components/toolbar/editor_page_manager.dart';
+import 'package:saber/components/toolbar/page_jump_dialog.dart';
 import 'package:saber/components/toolbar/toolbar.dart';
 import 'package:saber/data/editor/editor_core_info.dart';
 import 'package:saber/data/editor/editor_exporter.dart';
@@ -1681,6 +1682,29 @@ class EditorState extends State<Editor> {
                         transformationController: _transformationController,
                       );
                     }),
+                  ),
+                  IconButton(
+                    icon: const AdaptiveIcon(
+                      icon: Icons.bookmarks_outlined,
+                      cupertinoIcon: CupertinoIcons.bookmark,
+                    ),
+                    tooltip: t.editor.pageJump.title,
+                    onPressed: () => PageJumpDialog.show(
+                      context: context,
+                      coreInfo: coreInfo,
+                      currentPageIndex: currentPageIndex,
+                      goToPage: (int pageIndex) =>
+                          CanvasGestureDetector.scrollToPage(
+                            pageIndex: pageIndex,
+                            pages: coreInfo.pages,
+                            screenWidth: MediaQuery.sizeOf(context).width,
+                            transformationController: _transformationController,
+                          ),
+                      onBookmarksChanged: () {
+                        if (coreInfo.readOnly) return;
+                        autosaveAfterDelay();
+                      },
+                    ),
                   ),
                   IconButton(
                     icon: const AdaptiveIcon(

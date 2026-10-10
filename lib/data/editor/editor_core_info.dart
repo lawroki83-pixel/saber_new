@@ -75,6 +75,17 @@ class EditorCoreInfo {
   /// Stores the current page index so that it can be restored when the file is reloaded.
   int? initialPageIndex;
 
+  /// Page indices that the user has bookmarked, sorted ascending.
+  ///
+  /// This is stored in the note itself (under the `bm` key) so that
+  /// bookmarks travel with the note and sync like any other note data.
+  /// Older versions of Saber ignore this key, and notes without it
+  /// simply start with no bookmarks.
+  List<int> bookmarks;
+
+  /// Whether the given page is bookmarked.
+  bool isBookmarked(int pageIndex) => bookmarks.contains(pageIndex);
+
   static final placeholder =
       EditorCoreInfo._(
         filePath: '',
@@ -86,6 +97,7 @@ class EditorCoreInfo {
         lineThickness: stows.lastLineThickness.value,
         pages: [],
         initialPageIndex: null,
+        bookmarks: const <int>[],
         assetCache: null,
       ).._migrateOldStrokesAndImages(
         fileVersion: sbnVersion,
@@ -99,13 +111,16 @@ class EditorCoreInfo {
   bool get isNotEmpty => !isEmpty;
 
   @visibleForTesting
-  new({required this.filePath, this.readOnlyReason})
-    : nextImageId = 0,
-      backgroundPattern = stows.lastBackgroundPattern.value,
-      lineHeight = stows.lastLineHeight.value,
-      lineThickness = stows.lastLineThickness.value,
-      pages = [],
-      assetCache = AssetCache();
+  new({
+    required this.filePath,
+    this.readOnlyReason,
+    this.bookmarks = const <int>[],
+  }) : nextImageId = 0,
+       backgroundPattern = stows.lastBackgroundPattern.value,
+       lineHeight = stows.lastLineHeight.value,
+       lineThickness = stows.lastLineThickness.value,
+       pages = [],
+       assetCache = AssetCache();
 
   new _({
     required this.filePath,
@@ -117,6 +132,7 @@ class EditorCoreInfo {
     required this.lineThickness,
     required this.pages,
     required this.initialPageIndex,
+    this.bookmarks = const <int>[],
     required AssetCache? assetCache,
   }) : assetCache = assetCache ?? AssetCache() {
     _handleEmptyImageIds();
@@ -182,6 +198,7 @@ class EditorCoreInfo {
         ),
         lineHeight: json['l'] as int? ?? stows.lastLineHeight.value,
         lineThickness: json['lt'] as int? ?? stows.lastLineThickness.value,
+        bookmarks: (json['bm'] as List?)?.cast<int>() ?? const <int>[],
         pages: _parsePagesJson(
           json['z'] as List?,
           inlineAssets: inlineAssets,
@@ -482,6 +499,9 @@ class EditorCoreInfo {
       'lt': lineThickness,
       'z': pages.map((EditorPage page) => page.toJson(assets)).toList(),
       'c': initialPageIndex,
+      // Omitted entirely when there are no bookmarks,
+      // so that unmodified notes keep byte-identical output.
+      if (bookmarks.isNotEmpty) 'bm': bookmarks,
     };
 
     return (json, assets);
@@ -543,6 +563,7 @@ class EditorCoreInfo {
     int? lineHeight,
     int? lineThickness,
     List<EditorPage>? pages,
+    List<int>? bookmarks,
   }) {
     return EditorCoreInfo._(
       filePath: filePath ?? this.filePath,
@@ -554,6 +575,7 @@ class EditorCoreInfo {
       lineThickness: lineThickness ?? this.lineThickness,
       pages: pages ?? this.pages,
       initialPageIndex: initialPageIndex,
+      bookmarks: bookmarks ?? this.bookmarks,
       assetCache: assetCache,
     );
   }

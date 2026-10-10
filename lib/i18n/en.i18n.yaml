@@ -372,6 +372,19 @@ editor:
     lockSingleFingerPan: Disable single-finger panning
     unlockAxisAlignedPan: Unlock panning to horizontal or vertical
     lockAxisAlignedPan: Lock panning to horizontal or vertical
+  pageJump:
+    title: Jump to page
+    currentPage: "You are on page $page of $totalPages"
+    pageNumber: Page number
+    jump: Jump
+    enterPageNumber: Enter a page number
+    pageOutOfRange: That page number is out of range
+    addBookmark: Bookmark this page
+    removeBookmark: Remove bookmark
+    bookmarkCountOne: 1 bookmark
+    bookmarkCount: $n bookmarks
+    noBookmarks: No bookmarks yet
+    pageN: Page $page
   pages: Pages
   untitled: Untitled
   needsToSaveBeforeExiting: Saving your changes… You can safely exit the editor when it's done

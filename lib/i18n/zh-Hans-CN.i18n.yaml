@@ -372,6 +372,19 @@ editor:
     lockSingleFingerPan: 禁用单指平移
     unlockAxisAlignedPan: 解锁水平或垂直平移
     lockAxisAlignedPan: 锁定水平或垂直平移
+  pageJump:
+    title: 跳转到指定页码
+    currentPage: 当前位于第 $page / $totalPages 页
+    pageNumber: 页码
+    jump: 跳转
+    enterPageNumber: 请输入页码
+    pageOutOfRange: 页码超出范围
+    addBookmark: 为当前页添加书签
+    removeBookmark: 删除书签
+    bookmarkCountOne: 1 个书签
+    bookmarkCount: $n 个书签
+    noBookmarks: 还没有书签
+    pageN: 第 $page 页
   pages: 页面
   untitled: 未命名
   needsToSaveBeforeExiting: 正在保存您的更改… 完成后您可以安全地退出编辑器

@@ -1,0 +1,104 @@
+# 自定义 Saber 构建流水线
+#
+# 在 GitHub 的服务器上编译出可直接安装的安装包。
+# 用法：
+#   1. Fork https://github.com/saber-notes/saber 到你的账号
+#   2. 把本文件放到 fork 的 .github/workflows/ 目录下
+#   3. 套用 saber-patch 中的代码改动并 push
+#   4. 打开仓库的 Actions 页面，选择 "Build custom Saber" → Run workflow
+#   5. 构建完成后在该次运行的 Artifacts 区域下载 APK
+#
+# 若配置了签名密钥（见 README 的"可选：正式签名"一节），
+# 产物会被正确签名；否则是 debug 签名的 release APK，同样可以直接安装。
+
+name: Build custom Saber
+
+on:
+  # 允许在 Actions 页面手动点击运行
+  workflow_dispatch:
+  # 每次 push 到 main 也自动构建
+  push:
+    branches:
+      - main
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Saber 需要 Flutter >= 3.47.0 / Dart >= 3.13.0
+      # 这个 action 会自动读取 pubspec.yaml 里的约束并安装匹配的 Flutter。
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Saber 用 slang 生成翻译代码（lib/i18n/strings*.g.dart）。
+      # 新增 i18n 词条后必须重新生成，否则新词条不会被编译进去。
+      - name: Generate translations
+        run: |
+          dart run slang || flutter pub run slang
+
+      # 构建 release APK
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Rename artifact
+        run: |
+          mkdir -p output
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             output/Saber-custom.apk
+          ls -lh output
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Saber-custom-apk
+          path: output/Saber-custom.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  build-windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate translations
+        run: |
+          dart run slang
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Upload portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Saber-custom-windows
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 30
