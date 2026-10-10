@@ -385,6 +385,10 @@ editor:
     bookmarkCount: $n 个书签
     noBookmarks: 还没有书签
     pageN: 第 $page 页
+    renameBookmark: 重命名书签
+    bookmarkName: 书签名称
+    tapToJump: 点击即可跳转
+    justVisited: 最近访问
     saved: 已保存到笔记
   pages: 页面
   untitled: 未命名
