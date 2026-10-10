@@ -6,12 +6,6 @@ import 'package:saber/components/theming/saber_theme.dart';
 import 'package:saber/data/editor/editor_core_info.dart';
 import 'package:saber/i18n/strings.g.dart';
 
-/// A dialog that lets the user jump straight to a given page
-/// and bookmark pages so that they can return to them later.
-///
-/// This is aimed at long notes — for example a long PDF that has been
-/// imported into Saber — where scrolling from the first page to the
-/// last page is impractical.
 class PageJumpDialog extends StatefulWidget {
   new({
     super.key,
@@ -22,19 +16,10 @@ class PageJumpDialog extends StatefulWidget {
   });
 
   final EditorCoreInfo coreInfo;
-
-  /// The page that is currently centred on screen.
   final int currentPageIndex;
-
-  /// Scrolls the canvas to the given page index.
   final void Function(int pageIndex) goToPage;
-
-  /// Called after the user edits the bookmarks in this dialog.
-  ///
-  /// The editor uses this to trigger an autosave.
   final VoidCallback onBookmarksChanged;
 
-  /// Shows this dialog.
   static Future<void> show({
     required BuildContext context,
     required EditorCoreInfo coreInfo,
@@ -61,20 +46,19 @@ class _PageJumpDialogState extends State<PageJumpDialog> {
   final pageNumberController = TextEditingController();
   final pageNumberFieldKey = GlobalKey<FormState>();
 
-  /// A local copy of [EditorCoreInfo.bookmarks]. It is written back to the
-  /// note when the user confirms the dialog, so that pressing Cancel
-  /// leaves the note untouched.
-  late final List<int> bookmarks = List<int>.of(widget.coreInfo.bookmarks);
+  late int currentPageIndex = widget.currentPageIndex;
+
+  bool justSaved = false;
 
   int get pageCount => widget.coreInfo.pages.length;
 
-  int get currentPageNumber => widget.currentPageIndex + 1;
+  int get currentPageNumber => currentPageIndex + 1;
+
+  List<int> get bookmarks => widget.coreInfo.bookmarks;
 
   List<int> get sortedBookmarks => bookmarks.toList()..sort();
 
-  bool get isCurrentPageBookmarked => bookmarks.contains(
-    widget.currentPageIndex,
-  );
+  bool get isCurrentPageBookmarked => bookmarks.contains(currentPageIndex);
 
   @override
   void initState() {
@@ -88,49 +72,52 @@ class _PageJumpDialogState extends State<PageJumpDialog> {
     super.dispose();
   }
 
+  void jumpToPage(int pageIndex) {
+    if (pageIndex < 0 || pageIndex >= pageCount) return;
+
+    setState(() {
+      currentPageIndex = pageIndex;
+      pageNumberController.text = '${pageIndex + 1}';
+    });
+    widget.goToPage(pageIndex);
+  }
+
+  void applyChange(void Function() change) {
+    setState(() {
+      change();
+      justSaved = true;
+    });
+    widget.onBookmarksChanged();
+  }
+
   void removeBookmark(int pageIndex) {
-    setState(() => bookmarks.remove(pageIndex));
+    applyChange(() => bookmarks.remove(pageIndex));
   }
 
   void toggleCurrentBookmark() {
-    setState(() {
+    applyChange(() {
       if (isCurrentPageBookmarked) {
-        bookmarks.remove(widget.currentPageIndex);
+        bookmarks.remove(currentPageIndex);
       } else {
-        bookmarks.add(widget.currentPageIndex);
+        bookmarks.add(currentPageIndex);
       }
     });
   }
 
-  /// Jumps to the page the user typed, without closing the dialog.
   void jumpToTypedPage() {
     if (!(pageNumberFieldKey.currentState?.validate() ?? false)) return;
 
     final page = int.tryParse(pageNumberController.text.trim());
     if (page == null) return;
 
-    widget.goToPage(page - 1);
-  }
-
-  void saveAndClose() {
-    final changed =
-        bookmarks.length != widget.coreInfo.bookmarks.length ||
-        !bookmarks.every(widget.coreInfo.bookmarks.contains);
-
-    if (changed) {
-      widget.coreInfo.bookmarks
-        ..clear()
-        ..addAll(bookmarks);
-      widget.onBookmarksChanged();
-    }
-
-    Navigator.of(context).pop();
+    jumpToPage(page - 1);
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
     final sorted = sortedBookmarks;
+    final listHeight = MediaQuery.sizeOf(context).height * 0.32;
 
     return AdaptiveAlertDialog(
       title: Text(t.editor.pageJump.title),
@@ -148,13 +135,10 @@ class _PageJumpDialogState extends State<PageJumpDialog> {
                 ),
               ),
               const SizedBox.square(dimension: 12),
-
-              // ── 跳转到指定页码 ──
               Form(
                 key: pageNumberFieldKey,
                 child: TextFormField(
                   controller: pageNumberController,
-                  autofocus: true,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.go,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -182,9 +166,7 @@ class _PageJumpDialogState extends State<PageJumpDialog> {
                 ),
               ),
               const SizedBox.square(dimension: 12),
-
-              // ── 为当前页添加 / 移除书签 ──
-              OutlinedButton.icon(
+              FilledButton.icon(
                 onPressed: toggleCurrentBookmark,
                 icon: Icon(
                   isCurrentPageBookmarked
@@ -197,35 +179,61 @@ class _PageJumpDialogState extends State<PageJumpDialog> {
                       : t.editor.pageJump.addBookmark,
                 ),
               ),
-              const SizedBox.square(dimension: 16),
-
-              // ── 书签列表 ──
+              const SizedBox.square(dimension: 8),
+              if (justSaved)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox.square(dimension: 6),
+                    Text(
+                      t.editor.pageJump.saved,
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              const SizedBox.square(dimension: 12),
               Text(
                 sorted.isEmpty
                     ? t.editor.pageJump.noBookmarks
                     : (sorted.length == 1
                           ? t.editor.pageJump.bookmarkCountOne
-                          : t.editor.pageJump.bookmarkCount(
-                              n: sorted.length,
-                            )),
+                          : t.editor.pageJump.bookmarkCount(n: sorted.length)),
                 style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
-              // 使用 Column 而非嵌套的 ListView，
-              // 避免把滚动行为嵌套在 SingleChildScrollView 里。
-              for (final pageIndex in sorted)
-                ListTile(
-                  contentPadding: .zero,
-                  dense: true,
-                  leading: const Icon(Icons.bookmark),
-                  title: Text(t.editor.pageJump.pageN(page: pageIndex + 1)),
-                  onTap: () {
-                    widget.goToPage(pageIndex);
-                    Navigator.of(context).pop();
-                  },
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: t.editor.pageJump.removeBookmark,
-                    onPressed: () => removeBookmark(pageIndex),
+              if (sorted.isNotEmpty)
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: listHeight),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: sorted.length,
+                    itemBuilder: (context, index) {
+                      final pageIndex = sorted[index];
+                      final isCurrent = pageIndex == currentPageIndex;
+                      return ListTile(
+                        contentPadding: .zero,
+                        dense: true,
+                        leading: Icon(
+                          isCurrent ? Icons.bookmark : Icons.bookmark_border,
+                          color: isCurrent ? colorScheme.primary : null,
+                        ),
+                        title: Text(
+                          t.editor.pageJump.pageN(page: pageIndex + 1),
+                        ),
+                        onTap: () => jumpToPage(pageIndex),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: t.editor.pageJump.removeBookmark,
+                          onPressed: () => removeBookmark(pageIndex),
+                        ),
+                      );
+                    },
                   ),
                 ),
             ],
@@ -234,12 +242,8 @@ class _PageJumpDialogState extends State<PageJumpDialog> {
       ),
       actions: [
         CupertinoDialogAction(
-          child: Text(t.common.cancel),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        CupertinoDialogAction(
           child: Text(t.common.done),
-          onPressed: saveAndClose,
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ],
     );
