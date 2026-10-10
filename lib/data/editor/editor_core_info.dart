@@ -75,16 +75,43 @@ class EditorCoreInfo {
   /// Stores the current page index so that it can be restored when the file is reloaded.
   int? initialPageIndex;
 
-  /// Page indices that the user has bookmarked, sorted ascending.
+    /// The pages the user has bookmarked, sorted ascending by page index.
   ///
   /// This is stored in the note itself (under the `bm` key) so that
   /// bookmarks travel with the note and sync like any other note data.
   /// Older versions of Saber ignore this key, and notes without it
   /// simply start with no bookmarks.
-  List<int> bookmarks;
+  ///
+  /// Two on-disk shapes are supported so that this stays backwards
+  /// compatible:
+  /// - old: a plain list of page numbers, e.g. `[1, 7]`
+  /// - new: a list of `{p: page, n: name}` maps, e.g. `[{p: 1, n: Ch. 1}]`
+  List<EditorBookmark> bookmarks;
 
   /// Whether the given page is bookmarked.
-  bool isBookmarked(int pageIndex) => bookmarks.contains(pageIndex);
+  bool isBookmarked(int pageIndex) =>
+      bookmarks.any((EditorBookmark b) => b.pageIndex == pageIndex);
+
+  /// The bookmark on the given page, or `null` if it isn't bookmarked.
+  EditorBookmark? bookmarkAt(int pageIndex) {
+    for (final bookmark in bookmarks) {
+      if (bookmark.pageIndex == pageIndex) return bookmark;
+    }
+    return null;
+  }
+
+  /// Keeps [bookmarks] sorted by page index and free of duplicates.
+  void _sortBookmarks() {
+    bookmarks.sort(
+      (EditorBookmark a, EditorBookmark b) =>
+          a.pageIndex.compareTo(b.pageIndex),
+    );
+    for (int i = bookmarks.length - 1; i > 0; --i) {
+      if (bookmarks[i].pageIndex == bookmarks[i - 1].pageIndex) {
+        bookmarks.removeAt(i);
+      }
+    }
+  }
 
   static final placeholder =
       EditorCoreInfo._(
@@ -97,7 +124,7 @@ class EditorCoreInfo {
         lineThickness: stows.lastLineThickness.value,
         pages: [],
         initialPageIndex: null,
-        bookmarks: const <int>[],
+        bookmarks: const <EditorBookmark>[],
         assetCache: null,
       ).._migrateOldStrokesAndImages(
         fileVersion: sbnVersion,
@@ -114,7 +141,7 @@ class EditorCoreInfo {
   new({
     required this.filePath,
     this.readOnlyReason,
-    this.bookmarks = const <int>[],
+    this.bookmarks = const <EditorBookmark>[],
   }) : nextImageId = 0,
        backgroundPattern = stows.lastBackgroundPattern.value,
        lineHeight = stows.lastLineHeight.value,
@@ -132,7 +159,7 @@ class EditorCoreInfo {
     required this.lineThickness,
     required this.pages,
     required this.initialPageIndex,
-    this.bookmarks = const <int>[],
+    this.bookmarks = const <EditorBookmark>[],
     required AssetCache? assetCache,
   }) : assetCache = assetCache ?? AssetCache() {
     _handleEmptyImageIds();
@@ -198,7 +225,7 @@ class EditorCoreInfo {
         ),
         lineHeight: json['l'] as int? ?? stows.lastLineHeight.value,
         lineThickness: json['lt'] as int? ?? stows.lastLineThickness.value,
-        bookmarks: (json['bm'] as List?)?.cast<int>() ?? const <int>[],
+        bookmarks: EditorBookmark.listFromJson(json['bm'] as List?),
         pages: _parsePagesJson(
           json['z'] as List?,
           inlineAssets: inlineAssets,
@@ -221,7 +248,9 @@ class EditorCoreInfo {
             : null,
         onlyFirstPage: onlyFirstPage,
       )
-      .._sortStrokes();
+      .._sortStrokes()
+      .._sortBookmarks();
+
   }
 
   /// Old json format is just a list of strokes
@@ -234,7 +263,7 @@ class EditorCoreInfo {
        lineHeight = stows.lastLineHeight.value,
        lineThickness = stows.lastLineThickness.value,
        pages = [],
-       bookmarks = const <int>[],
+       bookmarks = const <EditorBookmark>[],
        assetCache = AssetCache() {
     _migrateOldStrokesAndImages(
       fileVersion: 0,
@@ -502,7 +531,8 @@ class EditorCoreInfo {
       'c': initialPageIndex,
       // Omitted entirely when there are no bookmarks,
       // so that unmodified notes keep byte-identical output.
-      if (bookmarks.isNotEmpty) 'bm': bookmarks,
+      if (bookmarks.isNotEmpty)
+        'bm': bookmarks.map((EditorBookmark b) => b.toJson()).toList(),
     };
 
     return (json, assets);
@@ -564,7 +594,7 @@ class EditorCoreInfo {
     int? lineHeight,
     int? lineThickness,
     List<EditorPage>? pages,
-    List<int>? bookmarks,
+    List<EditorBookmark>? bookmarks,
   }) {
     return EditorCoreInfo._(
       filePath: filePath ?? this.filePath,
@@ -581,3 +611,41 @@ class EditorCoreInfo {
     );
   }
 }
+
+
+/// A single bookmark: a page in the note, plus an optional user-given name.
+///
+/// The name is what makes bookmarks usable in a long PDF — "Ch. 3" is far
+/// easier to spot than "Page 87".
+class EditorBookmark {
+  int pageIndex;
+
+  /// The user-given name. `null` or empty means "no name".
+  String? name;
+
+  new({required this.pageIndex, this.name});
+
+  /// Reads both on-disk shapes:
+  /// - old: a plain page number, e.g. `1`
+  /// - new: a map, e.g. `{p: 1, n: Ch. 1}`
+  static EditorBookmark fromJson(dynamic json) {
+    if (json is Map) {
+      return EditorBookmark(
+        pageIndex: (json['p'] as num).toInt(),
+        name: json['n'] as String?,
+      );
+    }
+    return EditorBookmark(pageIndex: (json as num).toInt());
+  }
+
+  /// Compact on-disk shape. The name is omitted when there isn't one,
+  /// so an unnamed bookmark stays as small as it was before.
+  Map<String, dynamic> toJson() => {
+    'p': pageIndex,
+    if (name != null && name!.isNotEmpty) 'n': name,
+  };
+
+  static List<EditorBookmark> listFromJson(List<dynamic>? json) =>
+      json?.map(EditorBookmark.fromJson).toList() ?? const <EditorBookmark>[];
+}
+
