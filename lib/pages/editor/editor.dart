@@ -489,7 +489,13 @@ class EditorState extends State<Editor> {
         );
     }
   }
-
+  
+  /// Returns the page index currently centred on screen.
+  ///
+  /// The page-jump dialog calls this while building, and again whenever the
+  /// canvas transform changes, so its "you are on page N" readout and its
+  /// bookmark highlight always match what the user is looking at.
+  int currentPageUtil() => currentPageIndex;
   int? onWhichPageIsFocalPoint(Offset focalPoint) {
     for (int i = 0; i < coreInfo.pages.length; ++i) {
       if (coreInfo.pages[i].renderBox == null) continue;
@@ -1692,7 +1698,8 @@ class EditorState extends State<Editor> {
                     onPressed: () => PageJumpDialog.show(
                       context: context,
                       coreInfo: coreInfo,
-                      currentPageIndex: currentPageIndex,
+                      currentPageUtil: currentPageUtil,
+                      transformationController: _transformationController,
                       goToPage: (int pageIndex) =>
                           CanvasGestureDetector.scrollToPage(
                             pageIndex: pageIndex,
