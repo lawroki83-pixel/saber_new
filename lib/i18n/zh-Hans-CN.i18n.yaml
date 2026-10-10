@@ -385,6 +385,7 @@ editor:
     bookmarkCount: $n 个书签
     noBookmarks: 还没有书签
     pageN: 第 $page 页
+    saved: 已保存到笔记
   pages: 页面
   untitled: 未命名
   needsToSaveBeforeExiting: 正在保存您的更改… 完成后您可以安全地退出编辑器
